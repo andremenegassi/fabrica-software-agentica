@@ -258,6 +258,151 @@ permission:
 
 Uma regra simples para começar: o Revisor e o QA usam modelos diferentes do Desenvolvedor e, se possível, diferentes entre si. Diversidade de modelos reduz a correlação entre os erros, mas não a elimina. Ela complementa a verificação no disco, os testes executados e os checkpoints humanos; não substitui nenhum deles.
 
+## Instalação no opencode
+
+### 1. Prepare o repositório do projeto
+
+A fábrica usa obrigatoriamente o Git para criar branches e o GitHub para abrir pull requests. Por isso, o projeto precisa estar publicado em um repositório no GitHub e clonado na máquina; todo o desenvolvimento acontece nesse clone.
+
+- O repositório precisa ter pelo menos um commit na branch base e o remoto `origin` configurado.
+- A CLI `gh` precisa estar autenticada (`gh auth status`).
+- No clone, adicione e inicialize as skills do [GitHub Spec Kit](https://github.com/github/spec-kit) (GHSK) para o opencode e rode `/speckit-constitution` para criar as definições do projeto (`constitution.md`).
+
+O orquestrador confere esses pré-requisitos em E0 e para se algum faltar; ele não roda `git init` nem configura remotos por conta própria.
+
+### 2. Copie os agentes
+
+Os agentes ficam na pasta global do opencode. No Windows, crie a pasta `C:\Users\<usuário>\.config\opencode\agents\fabrica-software` e copie para ela os arquivos `.md` da pasta [`src/`](src/) deste repositório. No PowerShell, a partir da raiz deste repositório:
+
+```powershell
+$destino = "$env:USERPROFILE\.config\opencode\agents\fabrica-software"
+New-Item -ItemType Directory -Force $destino | Out-Null
+Copy-Item .\src\*.md $destino
+```
+
+A pasta deve ficar assim:
+
+```text
+C:\Users\<usuário>\.config\opencode\agents\fabrica-software\
+├── orquestrador.md
+├── subagent-analista-requisitos.md
+├── subagent-arquiteto.md
+├── subagent-criador-tarefas.md
+├── subagent-desenvolvedor.md
+├── subagent-qa.md
+└── subagent-revisor-codigo.md
+```
+
+O nome da subpasta faz parte do nome do agente. É por isso que o orquestrador aciona `fabrica-software/subagent-arquiteto`, e as permissões de `task` só funcionam se a pasta se chamar exatamente `fabrica-software`.
+
+O `orquestrador.md` define `model: 9router-aula/combo-free`. Troque pelo provedor e modelo que você tem configurado no opencode antes de usar.
+
+### 3. Selecione o orquestrador
+
+Reabra o opencode no clone do projeto e selecione o agente `fabrica-software/orquestrador` (tecla `Tab` alterna entre os agentes primários). Todos os prompts a seguir são enviados com ele selecionado.
+
+## Exemplo de uso
+
+O exemplo usa duas demandas sobre um frontend que exibe a data/hora do servidor. A primeira é obrigatória para o exemplo; a segunda é opcional.
+
+### Primeira demanda: especificar
+
+Primeiro prompt:
+
+```text
+@fabrica-software/subagent-analista-requisitos
+Nova feature.
+No frontend a data/hora do servidor deve aparecer no formato pt-br e em cor vermelha. Não precisa ser atualizada e deve usar a timezone America/Sao_Paulo.
+```
+
+O prompt aciona o Analista de Requisitos, que cria a especificação com o GHSK e pode fazer perguntas para esclarecer a demanda. Com o projeto aberto no VS Code, observe que a pasta `specs/` foi criada com a especificação da demanda e que o orquestrador criou a branch da feature.
+
+**Opcional.** A qualquer momento antes da aprovação, envie um prompt para ajustar um requisito (o ajuste passa pelo `speckit-clarify`):
+
+```text
+Preciso clarificar um requisito na feature.
+A cor vermelha deve ser em tom escuro.
+```
+
+Quando o orquestrador pedir a aprovação (Checkpoint 1), aprove, mas peça para não seguir com o Arquiteto. Uma aprovação simples já faz os próximos subagentes começarem a trabalhar.
+
+```text
+Aprovo a especificação, mas não siga com o arquiteto.
+```
+
+Ao final, a branch da feature tem um commit com a spec aprovada e o `state.json` fica em `ESPECIFICACAO_APROVADA`.
+
+### Segunda demanda: especificar a partir da primeira (opcional)
+
+Numa nova sessão, envie:
+
+```text
+@fabrica-software/subagent-analista-requisitos
+Nova feature. No frontend, abaixo da data/hora, apresentar bom dia, boa tarde ou boa noite, de acordo com o momento do dia. Criar uma nova branch a partir da atual. É uma nova feature a partir da implementação da branch atual.
+```
+
+Aprove a especificação da mesma forma, sem seguir para o Arquiteto.
+
+### Executar o backlog
+
+As especificações aprovadas ficam em `specs/` (por exemplo, `001-servidor-timestamp-pt-br` e `002-saudacao-horario`) e formam o backlog ainda não implementado. Há duas formas de implementá-las.
+
+#### Manual
+
+Envie um prompt por spec, com o orquestrador selecionado:
+
+```text
+@fabrica-software/subagent-arquiteto implemente a spec 001-servidor-timestamp-pt-br.
+```
+
+Espere a primeira spec terminar antes de pedir a segunda, já que a `002` parte da implementação da `001`.
+
+#### Agendada
+
+Instale no opencode o plugin `opencode-scheduler-v2`, adicionando-o ao arquivo de configuração (`opencode.json`):
+
+```json
+{
+  "plugin": [
+    "opencode-scheduler-v2"
+  ]
+}
+```
+
+Reabra o opencode, confirme que o plugin foi carregado e, com o orquestrador selecionado, envie (troque a data e a hora):
+
+```text
+/schedule agendar para DD/MM/AAAA às HH:MM:
+
+Execute as duas especificações abaixo, obrigatoriamente em sequência,
+uma de cada vez.
+
+ORDEM DE EXECUÇÃO:
+
+1. @fabrica-software/subagent-arquiteto
+   Especificação: 001-servidor-timestamp-pt-br
+
+2. @fabrica-software/subagent-arquiteto
+   Especificação: 002-saudacao-horario
+
+REGRAS OBRIGATÓRIAS:
+- Quando tarefas sequenciais, atualizar branch da próxima tarefa com os dados da anterior.
+- Não execute as duas tarefas em paralelo.
+- Inicie a primeira especificação e aguarde sua conclusão integral.
+- Aguarde o subagente retornar o resultado final.
+- Verifique se a implementação foi concluída com sucesso.
+- Somente depois disso, inicie a segunda especificação.
+- A segunda execução deve considerar o estado atualizado do projeto
+  após a primeira implementação.
+- Não inicie a próxima tarefa enquanto a anterior estiver em execução.
+- Se a primeira tarefa falhar, interrompa a sequência e não execute a segunda.
+- Ao final, apresente um relatório individual de cada especificação.
+```
+
+### Resultado final
+
+Cada spec percorre a zona autônoma (E2 a E7): Arquiteto, Criador de Tarefas, Desenvolvedor, Revisor de Código e QA. Ao término, o orquestrador abre um pull request por spec, que fica aguardando a aprovação do responsável (Checkpoint 2). Depois de aprovar e fazer o merge, o deploy automático fica a cargo do GitHub Actions, como visto em aula.
+
 ## Roteiro sugerido para a aula
 
 1. **O problema.** Por que um único agente que faz tudo perde o controle em features grandes. *(10 min)*
