@@ -1,4 +1,4 @@
-# Fábrica de Software com Agentes
+# Fábrica de Software Agêntica Semi-autônoma
 
 *Material de aula · agentes opencode + GitHub Spec Kit*
 
