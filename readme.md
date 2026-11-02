@@ -8,72 +8,60 @@ Um orquestrador conduz uma feature da ideia ao pull request, acionando seis suba
 
 O orquestrador é o único dono do fluxo. Ele monta o handoff (a passagem de bastão: a mensagem com tudo o que o subagente precisa saber para executar a sua etapa, já que ele começa sem nenhum contexto), troca para a branch da feature, aciona um subagente e espera o bloco de status. Os subagentes nunca chamam uns aos outros e nunca fazem commit.
 
-> 🟦 Orquestrador &nbsp;·&nbsp; 🟩 Subagente &nbsp;·&nbsp; 🟧 Humano
-
 ```mermaid
 flowchart TB
     H["Humano<br/><small>aprova spec · faz merge</small>"]
     O["Orquestrador<br/><small>valida no disco, decide</small>"]
     D[("Disco e Git<br/><small>specs/&lt;feature&gt;/ · branch</small>")]
 
-    subgraph planejar ["O que construir"]
-        A["Analista de Requisitos<br/><small>spec.md</small>"]
-        R["Arquiteto<br/><small>plan.md</small>"]
-        T["Criador de Tarefas<br/><small>tasks.md</small>"]
-    end
-    subgraph construir ["Construir e verificar"]
-        DEV["Desenvolvedor<br/><small>código + testes unit.</small>"]
-        REV["Revisor de Código<br/><small>review-report.md</small>"]
-        QA["QA<br/><small>qa-report.md</small>"]
-    end
+    A["Analista de Requisitos<br/><small>spec.md</small>"]
+    R["Arquiteto<br/><small>plan.md</small>"]
+    T["Criador de Tarefas<br/><small>tasks.md</small>"]
+    DEV["Desenvolvedor<br/><small>código + testes unit.</small>"]
+    REV["Revisor de Código<br/><small>review-report.md</small>"]
+    QA["QA<br/><small>qa-report.md</small>"]
 
     H <-->|"Checkpoints 1 e 2<br/>(e bloqueios reais)"| O
     O <-->|"handoff → / ← STATUS"| A
-    O <-->|"⚠ ask"| R
-    O <-->|"handoff → / ← STATUS"| T
-    O <-->|"handoff → / ← STATUS"| DEV
-    O <-->|"handoff → / ← STATUS"| REV
-    O <-->|"handoff → / ← STATUS"| QA
+    O <-->|"ask"| R
+    O <--> T
+    O <--> DEV
+    O <--> REV
+    O <--> QA
     O -->|"grava state.json,<br/>commit, push, PR"| D
-    planejar ~~~ D
-    construir ~~~ D
 
-    classDef hum fill:#FBEBDD,stroke:#B0541A,stroke-width:2px,color:#16202A
-    classDef orq fill:#E6EEF9,stroke:#2B5FA8,stroke-width:1.5px,color:#16202A
-    classDef sub fill:#E2F2EF,stroke:#1C7468,stroke-width:1.5px,color:#16202A
-    classDef disk fill:#F4F6F7,stroke:#5A6875,color:#16202A
+    classDef hum fill:#fde7d3,stroke:#d9822b,color:#1a1a1a
+    classDef orq fill:#dbe8fb,stroke:#3b6fc4,color:#1a1a1a
+    classDef sub fill:#eeeeee,stroke:#888888,color:#1a1a1a
     class H hum
     class O orq
     class A,R,T,DEV,REV,QA sub
+    classDef disk fill:#e8e2d4,stroke:#8a7a55,color:#1a1a1a
     class D disk
-    style planejar fill:transparent,stroke:#D5DCE2
-    style construir fill:transparent,stroke:#D5DCE2
 ```
 
 Todas as setas passam pelo orquestrador: ele envia o handoff e recebe de volta o bloco `STATUS`. A chamada ao Arquiteto está marcada como `ask`, então o ambiente pede confirmação ao humano antes dela (segunda barreira do Checkpoint 1).
 
 ## O fluxo de E0 a E8
 
-Cada etapa só avança quando o orquestrador confirma o critério de avanço no disco: o arquivo existe, os testes rodaram e saíram com código 0. O relato do subagente não basta. As setas vermelhas tracejadas são devoluções: o trabalho volta para quem pode corrigi-lo (máximo de 2 por etapa).
-
-> 🟦 Orquestrador executa &nbsp;·&nbsp; 🟩 Subagente executa &nbsp;·&nbsp; 🟧 Checkpoint humano &nbsp;·&nbsp; 🟥 tracejado = devolução (máx. 2 por etapa) &nbsp;·&nbsp; 📄 = artefatos gerados
+Cada etapa só avança quando o orquestrador confirma o critério de avanço no disco: o arquivo existe, os testes rodaram e saíram com código 0. O relato do subagente não basta. As setas tracejadas são devoluções: o trabalho volta para quem pode corrigi-lo (máximo de 2 por etapa).
 
 ```mermaid
 flowchart TB
-    E0["<b>E0 · Descoberta</b><br/><small>Orquestrador · git, gh, constituição</small><br/><small>📄 constitution.md · state.json</small>"]
-    E1["<b>E1 · Especificação</b><br/><small>Analista · speckit-specify, clarify</small><br/><small>📄 spec.md · checklists/</small>"]
-    C1["<b>Checkpoint 1 · aprovar a spec</b><br/><small>humano responde &quot;aprovado&quot;</small><br/><small>📄 specification_review</small>"]
-    subgraph auto ["Zona autônoma · E2 a E7"]
-        E2["<b>E2 · Plano técnico</b><br/><small>Arquiteto · speckit-plan</small><br/><small>📄 plan.md · research.md · quickstart · data-model</small>"]
-        E3["<b>E3 · Tarefas</b><br/><small>Criador de Tarefas · speckit-tasks</small><br/><small>📄 tasks.md</small>"]
-        E35["<b>E3.5 · Análise de consistência</b><br/><small>Orquestrador · speckit-analyze</small><br/><small>📄 relatório (só leitura)</small>"]
-        E4["<b>E4 · Implementação</b><br/><small>Desenvolvedor · uma fase por vez</small><br/><small>📄 código · testes · [X]</small>"]
-        E5["<b>E5 · Revisão de código</b><br/><small>Revisor · git diff do intervalo</small><br/><small>📄 review-report.md</small>"]
-        E6["<b>E6 · Teste e aceite</b><br/><small>QA · executa a suíte de testes</small><br/><small>📄 qa-report.md</small>"]
-        E7["<b>E7 · PR e CI</b><br/><small>Orquestrador · push, gh pr create</small><br/><small>📄 PR · checks da CI</small>"]
+    E0["E0 · Descoberta<br/><small>Orquestrador · git, gh, constituição</small>"]
+    E1["E1 · Especificação<br/><small>Analista · speckit-specify, clarify</small>"]
+    C1["Checkpoint 1 · aprovar a spec<br/><small>humano responde &quot;aprovado&quot;</small>"]
+    subgraph auto ["Zona autônoma · E2 → E7 · sem perguntar ao humano"]
+        E2["E2 · Plano técnico<br/><small>Arquiteto · speckit-plan</small>"]
+        E3["E3 · Tarefas<br/><small>Criador de Tarefas · speckit-tasks</small>"]
+        E35["E3.5 · Análise de consistência<br/><small>Orquestrador · speckit-analyze</small>"]
+        E4["E4 · Implementação<br/><small>Desenvolvedor · uma fase por vez</small>"]
+        E5["E5 · Revisão de código<br/><small>Revisor · git diff do intervalo</small>"]
+        E6["E6 · Teste e aceite<br/><small>QA · executa a suíte de testes</small>"]
+        E7["E7 · PR e CI<br/><small>Orquestrador · push, gh pr create</small>"]
     end
-    C2["<b>Checkpoint 2 · merge do PR</b><br/><small>só o humano faz o merge</small><br/><small>📄 merge_approval</small>"]
-    OK["<b>ENTREGUE</b><br/><small>gh pr view → MERGED</small><br/><small>📄 stage: ENTREGUE</small>"]
+    C2["Checkpoint 2 · merge do PR<br/><small>só o humano faz o merge</small>"]
+    OK["ENTREGUE<br/><small>gh pr view → MERGED</small>"]
 
     E0 --> E1
     E1 -->|"HUMAN_REVIEW_REQUIRED · para"| C1
@@ -93,17 +81,32 @@ flowchart TB
     E6 -.->|"defeito do QA"| E4
     E7 -.->|"CI falhou"| E4
 
-    classDef hum fill:#FBEBDD,stroke:#B0541A,stroke-width:2px,color:#16202A
-    classDef orq fill:#E6EEF9,stroke:#2B5FA8,stroke-width:1.5px,color:#16202A
-    classDef sub fill:#E2F2EF,stroke:#1C7468,stroke-width:1.5px,color:#16202A
-    classDef done fill:#FFFFFF,stroke:#16202A,stroke-width:1.5px,stroke-dasharray:4 3,color:#16202A
+    classDef hum fill:#fde7d3,stroke:#d9822b,color:#1a1a1a
+    classDef orq fill:#dbe8fb,stroke:#3b6fc4,color:#1a1a1a
+    classDef sub fill:#eeeeee,stroke:#888888,color:#1a1a1a
+    classDef done fill:#dcf3dc,stroke:#3a9a3a,color:#1a1a1a
     class C1,C2 hum
     class E0,E35,E7 orq
     class E1,E2,E3,E4,E5,E6 sub
     class OK done
-    style auto fill:transparent,stroke:#5A6875,stroke-dasharray:5 4
-    linkStyle 11,12,13,14,15 stroke:#B3322E,stroke-width:1.6px,color:#B3322E
 ```
+
+Artefatos de cada etapa:
+
+| Etapa | Artefatos |
+|---|---|
+| E0 · Descoberta | `constitution.md` · `state.json` |
+| E1 · Especificação | `spec.md` · `checklists/` |
+| Checkpoint 1 | `specification_review` |
+| E2 · Plano técnico | `plan.md` · `research.md` · `quickstart` · `data-model` |
+| E3 · Tarefas | `tasks.md` |
+| E3.5 · Análise de consistência | relatório (só leitura) |
+| E4 · Implementação | código · testes · `[X]` |
+| E5 · Revisão de código | `review-report.md` |
+| E6 · Teste e aceite | `qa-report.md` |
+| E7 · PR e CI | PR · checks da CI |
+| Checkpoint 2 | `merge_approval` |
+| ENTREGUE | `stage: ENTREGUE` |
 
 > **Ponto central para a aula:** todas as correções técnicas voltam ao Desenvolvedor (E4) e depois passam de novo por Revisor e QA. Mudança de requisito volta ao Checkpoint 1. Há limite de 2 devoluções por etapa e de 5 rodadas de correção por feature; ao estourar, o fluxo vira `BLOCKED` e chama o humano.
 
