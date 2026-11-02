@@ -12,7 +12,7 @@ O orquestrador é o único dono do fluxo. Ele monta o handoff (a passagem de bas
 flowchart TB
     H["Humano<br/><small>aprova spec · faz merge</small>"]
     O["Orquestrador<br/><small>valida no disco, decide</small>"]
-    D[("Disco e Git<br/><small>specs/&lt;feature&gt;/ · branch</small>")]
+    D[("Disco e Git<br/><small>specs/#lt;feature#gt;/ · branch</small>")]
 
     A["Analista de Requisitos<br/><small>spec.md</small>"]
     R["Arquiteto<br/><small>plan.md</small>"]
@@ -50,7 +50,7 @@ Cada etapa só avança quando o orquestrador confirma o critério de avanço no 
 flowchart TB
     E0["E0 · Descoberta<br/><small>Orquestrador · git, gh, constituição</small>"]
     E1["E1 · Especificação<br/><small>Analista · speckit-specify, clarify</small>"]
-    C1["Checkpoint 1 · aprovar a spec<br/><small>humano responde &quot;aprovado&quot;</small>"]
+    C1["Checkpoint 1 · aprovar a spec<br/><small>humano responde #quot;aprovado#quot;</small>"]
     subgraph auto ["Zona autônoma · E2 → E7 · sem perguntar ao humano"]
         E2["E2 · Plano técnico<br/><small>Arquiteto · speckit-plan</small>"]
         E3["E3 · Tarefas<br/><small>Criador de Tarefas · speckit-tasks</small>"]
